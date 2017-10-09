@@ -1,0 +1,14 @@
+{
+  "name": "webbluetooth-tester",
+  "version": "0.0.1",
+  "description": "web bluetooth tester",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Lars Knudsen",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "@types/web-bluetooth": "0.0.3",
+    "lit-html": "^0.7.1"
+  }
+}
