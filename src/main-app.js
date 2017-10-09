@@ -9,9 +9,7 @@ export class MainApp extends HTMLElement {
 
   constructor() {
     super();
-    console.log("Constructor");
     this._devices = [];
-    this._temperature = {};
     this.attachShadow({mode: 'open'});
   }
 
@@ -23,18 +21,23 @@ export class MainApp extends HTMLElement {
       return html`
         <style>
           .btn {
-            border: 2px solid black;
+            display: inline-block;
+            background: blue;
+            color: white;
+            margin: 0.3em;
+            padding: 0.3em;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            font-size: 150%;
+            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
           }
 
-          .disabled {
-            color: #888;
-            font-style: italic;
+          .btn:hover {
+            box-shadow: 0 7px 14px rgba(0,0,0,0.5);         
+            cursor: pointer;   
           }
-
-          code { white-space: pre };
         </style>
-        <div>Web Bluetooth Thingy:52 Tester</div><br>
-        <button on-click=${(e)=>this._doScan(e)}>CONNECT THINGY:52</button>
+        <h1>Web Bluetooth Thingy:52 Tester</h1>
+        <div class="btn" on-click=${(e)=>this._doScan(e)}>CONNECT THINGY:52</div>
         <p>Devices: <br>${this._devicesInfo()}</p>
         `;
   }
@@ -86,7 +89,6 @@ export class MainApp extends HTMLElement {
   }
 
   async _tryAttachDevice(device) {
-    console.log('device', device);
     if(!device)
       return;
 
@@ -97,8 +99,6 @@ export class MainApp extends HTMLElement {
     }
 
     const server = await device.gatt.connect();
-
-    console.log('server', server);
 
     this._beginTempListener(server);
     this._beginAccelListener(server);
