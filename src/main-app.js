@@ -24,7 +24,7 @@ export class MainApp extends HTMLElement {
             display: inline-block;
             background: blue;
             color: white;
-            margin: 0.3em;
+            margin: 0.4em;
             padding: 0.3em;
             box-shadow: 0 1px 3px rgba(0,0,0,0.5);
             font-size: 150%;
@@ -37,7 +37,7 @@ export class MainApp extends HTMLElement {
           }
         </style>
         <h1>Web Bluetooth Thingy:52 Tester</h1>
-        <div class="btn" on-click=${(e)=>this._doScan(e)}>CONNECT THINGY:52</div>
+        <div class="btn" on-click='${(e)=>this._doScan(e)}'>CONNECT THINGY:52</div>
         <p>Devices: <br>${this._devicesInfo()}</p>
         `;
   }
@@ -88,6 +88,32 @@ export class MainApp extends HTMLElement {
     this.invalidate();
   }
 
+  _onButtonData(evt) {
+    const idx = this._devices.findIndex(dev => { return dev.device === evt.target.service.device; });
+    if(idx<0)
+      return;
+
+    const thisDev = this._devices[idx]
+
+    thisDev.data.button = evt.target.value.getUint8(0) === 1;
+
+    // set led color to red or green
+    if(thisDev.ledCharacteristic) {
+      this._setRGB(thisDev.ledCharacteristic, thisDev.data.button ? 0xff : 0, thisDev.data.button ? 0 : 0xff, 0);
+    }
+  }
+
+  async _setRGB(ledChar, red, green, blue) {
+    let data = new Uint8Array(4);
+    data[0] = 1; // constant
+    data[1] = red;
+    data[2] = green;
+    data[3] = blue;
+
+    await ledChar.writeValue(data);
+  }
+
+
   async _tryAttachDevice(device) {
     if(!device)
       return;
@@ -100,10 +126,14 @@ export class MainApp extends HTMLElement {
 
     const server = await device.gatt.connect();
 
-    this._beginTempListener(server);
-    this._beginAccelListener(server);
+    const devObject = {device:device,data:{}};
+    
+    await this._beginTempListener(server);
+    await this._beginAccelListener(server);
+    await this._beginButtonListener(server);
+    await this._attachLed(server, devObject);
 
-    this._devices.push({device:device,data:{}});
+    this._devices.push(devObject);
 
     device.ongattserverdisconnected = e => { this._deviceDisconnected(device) };
     
@@ -112,16 +142,29 @@ export class MainApp extends HTMLElement {
 
   async _beginTempListener(server) {
     const service = await server.getPrimaryService('ef680200-9b35-4933-9b10-52ffa9740042');
-    const temperatureChar = await service.getCharacteristic('ef680201-9b35-4933-9b10-52ffa9740042');
-    temperatureChar.addEventListener('characteristicvaluechanged', this._onTemperatureData.bind(this));
-    temperatureChar.startNotifications();
+    const characteristic = await service.getCharacteristic('ef680201-9b35-4933-9b10-52ffa9740042');
+    characteristic.addEventListener('characteristicvaluechanged', this._onTemperatureData.bind(this));
+    return characteristic.startNotifications();
   }
 
   async _beginAccelListener(server) {
     const service = await server.getPrimaryService('ef680400-9b35-4933-9b10-52ffa9740042');
-    const accelChar = await service.getCharacteristic('ef68040a-9b35-4933-9b10-52ffa9740042');
-    accelChar.addEventListener('characteristicvaluechanged', this._onAccelData.bind(this));
-    accelChar.startNotifications();
+    const characteristic = await service.getCharacteristic('ef68040a-9b35-4933-9b10-52ffa9740042');
+    characteristic.addEventListener('characteristicvaluechanged', this._onAccelData.bind(this));
+    return characteristic.startNotifications();
+  }
+
+  async _beginButtonListener(server) {
+    const service = await server.getPrimaryService('ef680300-9b35-4933-9b10-52ffa9740042');
+    const characteristic = await service.getCharacteristic('ef680302-9b35-4933-9b10-52ffa9740042');
+    characteristic.addEventListener('characteristicvaluechanged', this._onButtonData.bind(this));
+    return characteristic.startNotifications();
+  }
+
+  async _attachLed(server, dev) {
+    const service = await server.getPrimaryService('ef680300-9b35-4933-9b10-52ffa9740042');
+    // set LED characteristic in respective device obj
+    dev.ledCharacteristic = await service.getCharacteristic('ef680301-9b35-4933-9b10-52ffa9740042');    
   }
 
   async _doScan(evt) {
@@ -143,6 +186,14 @@ export class MainApp extends HTMLElement {
     }
   }
 
+  _doDisconnect(idx, evt) {
+    console.log('_doDisconnect', idx, evt);
+    if(this._devices[idx]) {
+      console.log(this._devices[idx]);
+      this._devices[idx].device.gatt.disconnect();
+    }
+  }
+
   _devicesInfo() {
     if(!this._devices.length)
       return "N/A";
@@ -152,7 +203,9 @@ export class MainApp extends HTMLElement {
       ${repeat(this._devices, (d) => d.id, (d, index) => {
         const dataArr = Object.keys(d.data);
         return html`
-          <li>${d.device.name}</li>
+          <li>${d.device.name} 
+          <div class='btn' on-click='${(e)=>this._doDisconnect(index, e)}'> DISCONNECT </div>
+          </li>
           <ul>
             ${repeat(dataArr, (i) => i, (i, idx) => html`<li>${i}: ${JSON.stringify(d.data[i])}</li>`)}
           </ul>
