@@ -42,6 +42,7 @@ export class MainApp extends HTMLElement {
         `;
   }
 
+  // Repaint
   invalidate() {
     if (!this.needsRender) {
       this.needsRender = true;
@@ -52,6 +53,7 @@ export class MainApp extends HTMLElement {
     }
   }
 
+  // When the GATT server is disconnected, remove the device from the list
   _deviceDisconnected(device) {
     console.log('Disconnected', device);
     const idx = this._devices.findIndex(dev => { return dev.device === device; });
@@ -62,6 +64,7 @@ export class MainApp extends HTMLElement {
     }
   }
 
+  // Characteristic notification handlers
   _onTemperatureData(evt){
     const idx = this._devices.findIndex(dev => { return dev.device === evt.target.service.device; });
     if(idx<0)
@@ -97,7 +100,7 @@ export class MainApp extends HTMLElement {
 
     thisDev.data.button = evt.target.value.getUint8(0) === 1;
 
-    // set led color to red or green
+    // set led color to red or green based on button pressed state
     if(thisDev.ledCharacteristic) {
       this._setRGB(thisDev.ledCharacteristic, thisDev.data.button ? 0xff : 0, thisDev.data.button ? 0 : 0xff, 0);
     }
@@ -113,8 +116,8 @@ export class MainApp extends HTMLElement {
     await ledChar.writeValue(data);
   }
 
-
-  async _tryAttachDevice(device) {
+  // If successful, adds the Thingy:52 to this._devices array
+  async _attachDevice(device) {
     if(!device)
       return;
 
@@ -179,7 +182,7 @@ export class MainApp extends HTMLElement {
         ]
       });
 
-      this._tryAttachDevice(device);
+      this._attachDevice(device);
     } catch (e) {
       // No device was selected.
       console.log(e);
@@ -204,7 +207,7 @@ export class MainApp extends HTMLElement {
         const dataArr = Object.keys(d.data);
         return html`
           <li>${d.device.name} 
-          <div class='btn' on-click='${(e)=>this._doDisconnect(index, e)}'> DISCONNECT </div>
+          <div class='btn' on-click='${(e)=>this._doDisconnect(index, e)}'>DISCONNECT</div><br>
           </li>
           <ul>
             ${repeat(dataArr, (i) => i, (i, idx) => html`<li>${i}: ${JSON.stringify(d.data[i])}</li>`)}
