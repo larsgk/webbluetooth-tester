@@ -1,181 +1,230 @@
 // @ts-check
-
-import {html, render} from '../modules/lit-html/lib/lit-extended.js';
-import {repeat} from '../modules/lit-html/lib/repeat.js';
+import {html, LitElement} from '../node_modules/lit-html-element/lit-element.js';
+import {repeat} from '../node_modules/lit-html/lib/repeat.js';
 
 // todo thingy:52 module
 
-export class MainApp extends HTMLElement {
+class MatButton extends LitElement {
+  render() {
+    return html`
+      <style>
+        .btn {
+          display: inline-block;
+          position: relative;
+          box-sizing: border-box;
+          min-width: 5.14em;
+          margin: 0 0.29em;
+          background: transparent;
+          text-align: center;
+          font: inherit;
+          text-transform: uppercase;
+          outline: none;
+          border-radius: 3px;
+          user-select: none;
+          cursor: pointer;
+          z-index: 0;
+          padding: 0.7em 0.57em;
+          box-shadow: 0 2px 2px 0 rgba(0,0,0,0.14), 0 1px 5px 0 rgba(0,0,0,0.12), 0 3px 1px -2px rgba(0,0,0,0.2);
+          background-color:rgba(63, 81, 181, 1.0);
+          color: white;
+        }
+        .btn:hover {
+          box-shadow: 0 3px 3px 0 rgba(0,0,0,0.14), 0 1px 7px 0 rgba(0,0,0,0.12), 0 3px 1px -1px rgba(0,0,0,0.2);
+          background-color:rgba(63, 81, 181, 0.8);
+        }
+      </style>
+      <div class="btn">
+        <slot></slot>
+      </div>
+    `;
+  }
+}
+customElements.define('mat-button', MatButton);
+
+export class MainApp extends LitElement {
 
   constructor() {
     super();
     this._devices = [];
-    this.attachShadow({mode: 'open'});
+    this._onTemperatureChange = this._onTemperatureChange.bind(this);
+    this._onAccelChange = this._onAccelChange.bind(this);
+    this._onButtonChange = this._onButtonChange.bind(this);
   }
 
-  connectedCallback() {
-    this.invalidate();
+  _renderDeviceInfo() {
+    if (!this._devices.length) {
+      return "N/A";
+    }
+
+    return html`
+      ${this._devices.map(d => {
+        const dataArr = Object.keys(d.data);
+        return html`
+          ${d.device.name}
+          <mat-button class="mini-button" on-click='${e => this._detachDevice(d.device)}'>
+            DISCONNECT
+          </mat-button>:
+          <br>
+          <ul>
+            ${
+              repeat(dataArr, (i) => i, (i, idx) => {
+                let value = d.data[i];
+                if (typeof(value) === "object") {
+                  value = JSON.stringify(value);
+                }
+                return html`<li>${i}: ${value}</li>`
+              })
+            }
+          </ul>
+        `
+      })}
+    `;
   }
 
   render() {
-      return html`
-        <style>
-          .btn {
-            display: inline-block;
-            background: blue;
-            color: white;
-            margin: 0.4em;
-            padding: 0.3em;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-            font-size: 150%;
-            transition: all 0.3s cubic-bezier(.25,.8,.25,1);
-          }
-
-          .btn:hover {
-            box-shadow: 0 7px 14px rgba(0,0,0,0.5);         
-            cursor: pointer;   
-          }
-        </style>
-        <h1>Web Bluetooth Thingy:52 Tester</h1>
-        <div class="btn" on-click='${(e)=>this._doScan(e)}'>CONNECT THINGY:52</div>
-        <p>Devices: <br>${this._devicesInfo()}</p>
-        `;
-  }
-
-  // Repaint
-  invalidate() {
-    if (!this.needsRender) {
-      this.needsRender = true;
-      Promise.resolve().then(() => {
-        this.needsRender = false;
-        render(this.render(), this.shadowRoot);
-      });
-    }
+    return html`
+      <style>
+        :host {
+          font-family: Roboto, Arial;
+        }
+        .mini-button {
+          font-size: 8pt;
+        }
+        .title {
+          font-weight: bold;
+        }
+      </style>
+      <h1>Nordic Thingy:52 - Web Bluetooth Tester</h1>
+      <br>
+      <mat-button on-click='${ _ => this._scan()}'>CONNECT <b>THINGY:52</b></mat-button>
+      <br><br>
+      <p>
+        <h2 class="title">Devices:</h2><br>
+        ${this._renderDeviceInfo()}
+      </p>
+    `;
   }
 
   // When the GATT server is disconnected, remove the device from the list
   _deviceDisconnected(device) {
     console.log('Disconnected', device);
-    const idx = this._devices.findIndex(dev => { return dev.device === device; });
+    const idx = this._devices.findIndex(dev => dev.device === device);
 
-    if(idx >= 0) {
-      this._devices.splice(idx,1)
+    if (idx >= 0) {
+      this._devices.splice(idx, 1)
       this.invalidate();
     }
   }
 
   // Characteristic notification handlers
-  _onTemperatureData(evt){
-    const idx = this._devices.findIndex(dev => { return dev.device === evt.target.service.device; });
-    if(idx<0)
+  _onTemperatureChange(event) {
+    const target = event.target;
+    const idx = this._devices.findIndex(dev => dev.device === target.service.device);
+    if (idx < 0) {
       return;
+    }
 
-    let integer = evt.target.value.getUint8(0);
-    let decimal = evt.target.value.getUint8(1);
+    const integer = target.value.getUint8(0);
+    const decimal = target.value.getUint8(1);
 
-    this._devices[idx].data.temperature = integer + '.' + decimal;
-    this.invalidate();    
+    this._devices[idx].data.temperature = `${integer}.${decimal}°C`;
+    this.invalidate();
   }
 
-  _onAccelData(evt) {
-    const idx = this._devices.findIndex(dev => { return dev.device === evt.target.service.device; });
-    if(idx<0)
+  _onAccelChange(event) {
+    const target = event.target;
+    const idx = this._devices.findIndex(dev => dev.device === target.service.device);
+    if (idx < 0) {
       return;
+    }
 
     this._devices[idx].data.accel = {
-      x: evt.target.value.getFloat32(0, true),
-      y: evt.target.value.getFloat32(4, true),
-      z: evt.target.value.getFloat32(8, true)      
+      x: +target.value.getFloat32(0, true).toPrecision(5),
+      y: +target.value.getFloat32(4, true).toPrecision(5),
+      z: +target.value.getFloat32(8, true).toPrecision(5)
     };
 
     this.invalidate();
   }
 
-  _onButtonData(evt) {
-    const idx = this._devices.findIndex(dev => { return dev.device === evt.target.service.device; });
-    if(idx<0)
+  _onButtonChange(event) {
+    const target = event.target;
+    const idx = this._devices.findIndex(dev => dev.device === target.service.device);
+    if (idx < 0) {
       return;
+    }
 
-    const thisDev = this._devices[idx]
-
-    thisDev.data.button = evt.target.value.getUint8(0) === 1;
+    const device = this._devices[idx];
+    const button = device.data.button = target.value.getUint8(0) === 1;
 
     // set led color to red or green based on button pressed state
-    if(thisDev.ledCharacteristic) {
-      this._setRGB(thisDev.ledCharacteristic, thisDev.data.button ? 0xff : 0, thisDev.data.button ? 0 : 0xff, 0);
+    if (device.led) {
+      const hexToRGB = hex => hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16));
+      const color = hexToRGB(button ? '#ff0000' : '#00ff00');
+      return device.led.writeValue(new Uint8Array([1, ...color]));
     }
-  }
-
-  async _setRGB(ledChar, red, green, blue) {
-    let data = new Uint8Array(4);
-    data[0] = 1; // constant
-    data[1] = red;
-    data[2] = green;
-    data[3] = blue;
-
-    await ledChar.writeValue(data);
   }
 
   // If successful, adds the Thingy:52 to this._devices array
   async _attachDevice(device) {
-    if(!device)
+    // TODO: Can this even happen? Looks defensive.
+    if (!device) {
       return;
+    }
 
     // Check that device is not already connected
-    if(this._devices.findIndex(dev => { return dev.device.id === device.id; }) >= 0) {
+    if (this._devices.findIndex(dev => dev.device.id === device.id) >= 0) {
       console.log('Device already connected!');
       return;
     }
 
     const server = await device.gatt.connect();
 
-    const devObject = {device:device,data:{}};
-    
-    await this._beginTempListener(server);
-    await this._beginAccelListener(server);
-    await this._beginButtonListener(server);
-    await this._attachLed(server, devObject);
+    await this._startTemperatureNotifications(server);
+    await this._startAccelerometerNotifications(server);
+    await this._startButtonClickNotifications(server);
 
-    this._devices.push(devObject);
+    const led = await this._getLedCharacteristic(server);
 
-    device.ongattserverdisconnected = e => { this._deviceDisconnected(device) };
-    
-    this.invalidate();    
+    this._devices.push({device, led, data: {}});
+
+    device.ongattserverdisconnected = _ => this._deviceDisconnected(device);
+
+    this.invalidate();
   }
 
-  async _beginTempListener(server) {
+  async _startTemperatureNotifications(server) {
     const service = await server.getPrimaryService('ef680200-9b35-4933-9b10-52ffa9740042');
     const characteristic = await service.getCharacteristic('ef680201-9b35-4933-9b10-52ffa9740042');
-    characteristic.addEventListener('characteristicvaluechanged', this._onTemperatureData.bind(this));
+    characteristic.addEventListener('characteristicvaluechanged', this._onTemperatureChange);
     return characteristic.startNotifications();
   }
 
-  async _beginAccelListener(server) {
+  async _startAccelerometerNotifications(server) {
     const service = await server.getPrimaryService('ef680400-9b35-4933-9b10-52ffa9740042');
     const characteristic = await service.getCharacteristic('ef68040a-9b35-4933-9b10-52ffa9740042');
-    characteristic.addEventListener('characteristicvaluechanged', this._onAccelData.bind(this));
+    characteristic.addEventListener('characteristicvaluechanged', this._onAccelChange);
     return characteristic.startNotifications();
   }
 
-  async _beginButtonListener(server) {
+  async _startButtonClickNotifications(server) {
     const service = await server.getPrimaryService('ef680300-9b35-4933-9b10-52ffa9740042');
     const characteristic = await service.getCharacteristic('ef680302-9b35-4933-9b10-52ffa9740042');
-    characteristic.addEventListener('characteristicvaluechanged', this._onButtonData.bind(this));
+    characteristic.addEventListener('characteristicvaluechanged', this._onButtonChange);
     return characteristic.startNotifications();
   }
 
-  async _attachLed(server, dev) {
+  async _getLedCharacteristic(server) {
     const service = await server.getPrimaryService('ef680300-9b35-4933-9b10-52ffa9740042');
-    // set LED characteristic in respective device obj
-    dev.ledCharacteristic = await service.getCharacteristic('ef680301-9b35-4933-9b10-52ffa9740042');    
+    return await service.getCharacteristic('ef680301-9b35-4933-9b10-52ffa9740042');
   }
 
-  async _doScan(evt) {
+  async _scan() {
     try {
       const device = await navigator.bluetooth.requestDevice({
         filters: [{ services: ['ef680100-9b35-4933-9b10-52ffa9740042'] }],
         optionalServices: [
-          "ef680200-9b35-4933-9b10-52ffa9740042", 
+          "ef680200-9b35-4933-9b10-52ffa9740042",
           "ef680300-9b35-4933-9b10-52ffa9740042",
           "ef680400-9b35-4933-9b10-52ffa9740042",
           "ef680500-9b35-4933-9b10-52ffa9740042"
@@ -183,40 +232,14 @@ export class MainApp extends HTMLElement {
       });
 
       this._attachDevice(device);
-    } catch (e) {
-      // No device was selected.
-      console.log(e);
+    } catch (err) {
+      console.log(err); // No device was selected.
     }
   }
 
-  _doDisconnect(idx, evt) {
-    console.log('_doDisconnect', idx, evt);
-    if(this._devices[idx]) {
-      console.log(this._devices[idx]);
-      this._devices[idx].device.gatt.disconnect();
-    }
+  _detachDevice(device) {
+    device.gatt.disconnect();
+    // results in _deviceDisconnected call.
   }
-
-  _devicesInfo() {
-    if(!this._devices.length)
-      return "N/A";
-
-    return html`
-      <ul>
-      ${repeat(this._devices, (d) => d.id, (d, index) => {
-        const dataArr = Object.keys(d.data);
-        return html`
-          <li>${d.device.name} 
-          <div class='btn' on-click='${(e)=>this._doDisconnect(index, e)}'>DISCONNECT</div><br>
-          </li>
-          <ul>
-            ${repeat(dataArr, (i) => i, (i, idx) => html`<li>${i}: ${JSON.stringify(d.data[i])}</li>`)}
-          </ul>
-        `})
-      }
-      </ul>
-    `;
-  }
-
 }
-customElements.define('main-app', MainApp);
+customElements.define('main-app', MainApp.withProperties());
