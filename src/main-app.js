@@ -1,6 +1,6 @@
 // @ts-check
-import {html, LitElement} from '../node_modules/lit-html-element/lit-element.js';
-import {repeat} from '../node_modules/lit-html/lib/repeat.js';
+import {html, LitElement} from '../modules/lit-html-element/lit-element.js';
+import {repeat} from '../modules/lit-html/lib/repeat.js';
 
 // todo thingy:52 module
 
