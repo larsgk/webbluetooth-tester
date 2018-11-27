@@ -1,6 +1,6 @@
 // @ts-check
-import {html, LitElement} from '../modules/lit-html-element/lit-element.js';
-import {repeat} from '../modules/lit-html/lib/repeat.js';
+import { html, LitElement } from '../modules/lit-element/lit-element.js';
+import { repeat } from '../modules/lit-html/directives/repeat.js';
 
 // todo thingy:52 module
 
@@ -61,7 +61,7 @@ export class MainApp extends LitElement {
         const dataArr = Object.keys(d.data);
         return html`
           ${d.device.name}
-          <mat-button class="mini-button" on-click='${e => this._detachDevice(d.device)}'>
+          <mat-button class="mini-button" @click='${e => this._detachDevice(d.device)}'>
             DISCONNECT
           </mat-button>:
           <br>
@@ -96,7 +96,7 @@ export class MainApp extends LitElement {
       </style>
       <h1>Nordic Thingy:52 - Web Bluetooth Tester</h1>
       <br>
-      <mat-button on-click='${ _ => this._scan()}'>CONNECT <b>THINGY:52</b></mat-button>
+      <mat-button @click='${this._scan}'>CONNECT <b>THINGY:52</b></mat-button>
       <br><br>
       <p>
         <h2 class="title">Devices:</h2><br>
@@ -112,7 +112,7 @@ export class MainApp extends LitElement {
 
     if (idx >= 0) {
       this._devices.splice(idx, 1)
-      this.invalidate();
+      this.requestUpdate();
     }
   }
 
@@ -128,7 +128,7 @@ export class MainApp extends LitElement {
     const decimal = target.value.getUint8(1);
 
     this._devices[idx].data.temperature = `${integer}.${decimal}°C`;
-    this.invalidate();
+    this.requestUpdate();
   }
 
   _onAccelChange(event) {
@@ -144,7 +144,7 @@ export class MainApp extends LitElement {
       z: +target.value.getFloat32(8, true).toPrecision(5)
     };
 
-    this.invalidate();
+    this.requestUpdate();
   }
 
   _onButtonChange(event) {
@@ -190,7 +190,7 @@ export class MainApp extends LitElement {
 
     device.ongattserverdisconnected = _ => this._deviceDisconnected(device);
 
-    this.invalidate();
+    this.requestUpdate();
   }
 
   async _startTemperatureNotifications(server) {
@@ -242,4 +242,4 @@ export class MainApp extends LitElement {
     // results in _deviceDisconnected call.
   }
 }
-customElements.define('main-app', MainApp.withProperties());
+customElements.define('main-app', MainApp);

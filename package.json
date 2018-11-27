@@ -8,8 +8,6 @@
   "author": "Lars Knudsen",
   "license": "BSD-2-Clause",
   "dependencies": {
-    "@types/web-bluetooth": "0.0.4",
-    "lit-html": "^0.7.1",
-    "lit-html-element": "^0.9.1"
+    "@types/web-bluetooth": "0.0.4"
   }
 }
