@@ -1,6 +1,6 @@
 // @ts-check
-import { html, LitElement } from '../modules/lit-element/lit-element.js';
-import { repeat } from '../modules/lit-html/directives/repeat.js';
+import { html, LitElement } from 'https://unpkg.com/@polymer/lit-element@latest/lit-element.js?module';
+import { repeat } from 'https://unpkg.com/lit-html@0.13.0/directives/repeat.js?module';
 
 // todo thingy:52 module
 
